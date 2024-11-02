@@ -593,3 +593,18 @@ class State(rx.State):
                 },
             )
             self.display_data_indices = list(range(len(self.projects)))
+
+    def fetch_issues_for_repo(
+        self: State,
+        repo_path: str,
+    ) -> Generator[None, None, None]:
+        repo: Repository | None = helper_github.fetch_repo(
+            repo_path=repo_path,
+            client=CLIENT_GITHUB,
+        )
+        if repo is None:
+            return
+
+        yield from helper_github.fetch_github_issues_for_repo(
+            repo=repo,
+        )
