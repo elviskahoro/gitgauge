@@ -455,8 +455,8 @@ class State(rx.State):
         repo_path: str,
     ) -> Repository | None:
         with tracer.start_as_current_span("get_repo") as span:
-            repo_path_search: str = helper_github.extract_repo_path_from_url(
-                url=repo_path,
+            repo_path_search: str = helper_github.extract_repo_path(
+                repo_search_input=repo_path,
             )
             repo: Repository | None = helper_github.fetch_repo(
                 repo_path=repo_path_search,

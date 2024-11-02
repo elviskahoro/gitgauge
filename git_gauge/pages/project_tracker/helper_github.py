@@ -100,13 +100,13 @@ def set_up_client_from_tokens(
     return github_client
 
 
-def extract_repo_path_from_url(
-    url: str,
+def extract_repo_path(
+    repo_search_input: str,
 ) -> str:
     """Extract repository path from GitHub URL.
 
     Args:
-        url: GitHub repository URL (e.g., 'https://github.com/owner/repo' or 'github.com/owner/repo')
+        repo_search_input: GitHub repository URL (e.g., 'https://github.com/owner/repo' or 'github.com/owner/repo')
 
     Returns:
         Repository path in format 'owner/repo'
@@ -115,21 +115,21 @@ def extract_repo_path_from_url(
         ValueError: If URL format is invalid
     """
     # Remove protocol prefix if present
-    url = url.replace("https://", "").replace("http://", "")
+    repo_search_input = repo_search_input.replace("https://", "").replace("http://", "")
 
     # Remove github.com prefix if present
-    if url.startswith("github.com/"):
-        url = url.replace("github.com/", "")
+    if repo_search_input.startswith("github.com/"):
+        repo_search_input = repo_search_input.replace("github.com/", "")
 
     # Remove trailing slash and .git suffix if present
-    url = url.rstrip("/").replace(".git", "")
+    repo_search_input = repo_search_input.rstrip("/").replace(".git", "")
 
     # Validate format (should be owner/repo)
-    parts = url.split("/")
+    parts = repo_search_input.split("/")
     if len(parts) != 2:
         raise ValueError("Invalid GitHub URL format. Expected format: owner/repo")
 
-    return url
+    return repo_search_input
 
 
 def fetch_repo(
