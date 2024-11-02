@@ -144,7 +144,7 @@ def fetch_repo(
         return repo
 
 
-def fetch_pull_requests(
+def fetch_pull_requests_for_repo(
     repo: Repository,
 ) -> Generator[PullRequest, None, None]:
     span_name: str = "fetch_pull_requests"
@@ -156,22 +156,6 @@ def fetch_pull_requests(
             state="all",
             sort="updated",
             direction="desc",
-        )
-        span.add_event(
-            name=f"{span_name}-completed",
-        )
-
-
-def fetch_pull_request_for_repo(
-    repo: Repository,
-) -> Generator[PullRequest, None, None]:
-    span_name: str = "fetch_pull_request_for_repo"
-    with tracer.start_as_current_span(span_name) as span:
-        span.add_event(
-            name=f"{span_name}-started",
-        )
-        yield from fetch_pull_requests(
-            repo=repo,
         )
         span.add_event(
             name=f"{span_name}-completed",
