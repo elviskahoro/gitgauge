@@ -23,7 +23,6 @@ from .constants import (
     NUMBER_OF_WORDS_TO_DISPLAY_FOR_REPO_DESCRIPTION,
 )
 from .helper_chroma import chroma_add_project, chroma_get_projects
-from .helper_perplexity import perplexity_get_repo
 from .repo_cards import (
     repo_card_description_component,
     repo_card_skeleton,
