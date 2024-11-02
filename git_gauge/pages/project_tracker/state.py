@@ -81,7 +81,6 @@ def set_up_clients() -> None:
             )
 
 
-
 set_up_clients()
 
 
