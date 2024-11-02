@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generator
 
-import chromadb
-import chromadb.api
 import reflex as rx
-from github import Github
+from github import Github as ClientGithub
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from chromadb import HttpClient as ClientChroma
+from git_gauge.helper_perplexity import Client as ClientPerplexity
 
 from git_gauge import helper_chroma, helper_perplexity
 from git_gauge.models.project import Project
@@ -30,22 +31,21 @@ from .repo_cards import (
 )
 
 if TYPE_CHECKING:
-    import chromadb.api.client
     from github.Repository import Repository
 
-client_chroma: chromadb.HttpClient | None = None
-client_github: Github | None = None
-client_perplexity: helper_perplexity.Client | None = None
+CLIENT_CHROMA: ClientChroma | None = None
+CLIENT_GITHUB: ClientGithub | None = None
+CLIENT_PERPLEXITY: ClientPerplexity | None = None
 
 
 def set_up_clients() -> None:
-    global client_chroma, client_github, client_perplexity
+    global CLIENT_CHROMA, CLIENT_GITHUB, CLIENT_PERPLEXITY
     with tracer.start_as_current_span("set_up_clients") as span:
         try:
             span.add_event(
                 name="set_up_clients-chroma_client-started",
             )
-            client_chroma = helper_chroma.set_up_client_from_tokens(
+            CLIENT_CHROMA = helper_chroma.set_up_client_from_tokens(
                 tokens=TOKENS,
             )
 
@@ -58,7 +58,7 @@ def set_up_clients() -> None:
             span.add_event(
                 name="set_up_clients-github_client-started",
             )
-            client_github = helper_github.set_up_client_from_tokens(
+            CLIENT_GITHUB = helper_github.set_up_client_from_tokens(
                 tokens=TOKENS,
             )
 
@@ -71,7 +71,7 @@ def set_up_clients() -> None:
             span.add_event(
                 name="set_up_clients-perplexity_client-started",
             )
-            client_perplexity = helper_perplexity.Client.set_up_client_from_tokens(
+            CLIENT_PERPLEXITY = helper_perplexity.Client.set_up_client_from_tokens(
                 tokens=TOKENS,
             )
 
@@ -468,7 +468,7 @@ class State(rx.State):
             )
             repo: Repository | None = helper_github.fetch_repo(
                 repo_path=repo_path_search,
-                client=client_github,
+                client=CLIENT_GITHUB,
             )
             if repo is None:
                 span_event_name: str = "repo-not_found"
@@ -513,7 +513,7 @@ class State(rx.State):
 
             perplexity_description: str = await perplexity_get_repo(
                 repo_url=project.repo_url,
-                client=client_perplexity,
+                client=CLIENT_PERPLEXITY,
             )
             project.set_description(
                 description=perplexity_description,
@@ -525,7 +525,7 @@ class State(rx.State):
 
             chroma_add_project(
                 project=project,
-                client=client_chroma,
+                client=CLIENT_CHROMA,
             )
             yield
 
@@ -543,7 +543,7 @@ class State(rx.State):
             project_repo_paths: list[str] = chroma_get_projects(
                 repo_filter_vector_search_text=self.last_vector_search_filter_text,
                 n_results=NUMBER_OF_RESULTS_TO_DISPLAY_FOR_VECTOR_SEARCH,
-                client=client_chroma,
+                client=CLIENT_CHROMA,
                 distance_threshold=distance_threshold,
             )
             if project_repo_paths is None or not project_repo_paths:

@@ -103,9 +103,18 @@ def extract_repo_path_from_url(
 
 def fetch_repo(
     repo_path: str,
-    client: Github,
+    client: Github | None,
 ) -> Repository | None:
     with tracer.start_as_current_span("fetch_repo") as span:
+        if client is None:
+            span.add_event(
+                name="fetch_repo-no_client",
+                attributes={
+                    "repo_path": repo_path,
+                },
+            )
+            raise AttributeError("No client provided")
+
         span.add_event(
             name="fetch_repo-started",
             attributes={
