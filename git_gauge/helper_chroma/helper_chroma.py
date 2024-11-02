@@ -20,7 +20,7 @@ def set_up_client_from_tokens(
     missing_tokens = [token for token in required_tokens if not tokens.get(token)]
     if missing_tokens:
         error_msg: str = f"Missing required tokens: {', '.join(missing_tokens)}"
-        raise ValueError(error_msg)
+        raise AttributeError(error_msg)
 
     return chromadb.HttpClient(
         ssl=True,
