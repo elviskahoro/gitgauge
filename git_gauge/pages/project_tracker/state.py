@@ -31,17 +31,57 @@ from .repo_cards import (
 if TYPE_CHECKING:
     import chromadb.api.client
     from github.Repository import Repository
-CHROMA_CLIENT: chromadb.HttpClient = helper_chroma.set_up_client_from_tokens(
-    tokens=TOKENS,
-)
-GITHUB_CLIENT: Github = helper_github.set_up_client_from_tokens(
-    tokens=TOKENS,
-)
-PERPLEXITY_CLIENT: helper_perplexity.Client = (
-    helper_perplexity.Client.set_up_client_from_tokens(
-        tokens=TOKENS,
-    )
-)
+
+CHROMA_CLIENT: chromadb.HttpClient | None = None
+GITHUB_CLIENT: Github | None = None
+PERPLEXITY_CLIENT: helper_perplexity.Client | None = None
+
+
+def set_up_clients() -> None:
+    global CHROMA_CLIENT, GITHUB_CLIENT, PERPLEXITY_CLIENT
+    with tracer.start_as_current_span("set_up_clients") as span:
+        try:
+            span.add_event(
+                name="set_up_clients-chroma_client-started",
+            )
+            CHROMA_CLIENT = helper_chroma.set_up_client_from_tokens(
+                tokens=TOKENS,
+            )
+
+        except AttributeError:
+            span.add_event(
+                name="set_up_clients-chroma_client-failed",
+                )
+
+        try:
+            span.add_event(
+                name="set_up_clients-github_client-started",
+            )
+            GITHUB_CLIENT = helper_github.set_up_client_from_tokens(
+                tokens=TOKENS,
+            )
+
+        except AttributeError:
+            span.add_event(
+                name="set_up_clients-github_client-failed",
+            )
+
+        try:
+            span.add_event(
+                name="set_up_clients-perplexity_client-started",
+            )
+            PERPLEXITY_CLIENT = helper_perplexity.Client.set_up_client_from_tokens(
+                tokens=TOKENS,
+            )
+
+        except AttributeError:
+            span.add_event(
+                name="set_up_clients-perplexity_client-failed",
+            )
+
+
+
+set_up_clients()
 
 
 class State(rx.State):
@@ -416,6 +456,12 @@ class State(rx.State):
     ):
         async with self:
             span = tracer.start_span("fetch_repo_and_submit")
+            if self.repo_path_search is None or self.repo_path_search == "":
+                span.add_event(
+                    name="fetch_repo_and_submit-no_repo_path_submitted",
+                )
+                return
+
             repo_path_search: str = helper_github.extract_repo_path_from_url(
                 url=self.repo_path_search,
             )

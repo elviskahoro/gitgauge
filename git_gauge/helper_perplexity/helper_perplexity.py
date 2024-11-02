@@ -21,7 +21,7 @@ class Client:
     ) -> Client:
         token: str | None = tokens.get("PERPLEXITY_API_KEY")
         if token is None:
-            raise ValueError("PERPLEXITY_API_KEY not found in tokens")
+            raise AttributeError("PERPLEXITY_API_KEY not found in tokens")
 
         return cls(
             token=token,
