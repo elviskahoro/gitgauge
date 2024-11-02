@@ -523,14 +523,14 @@ class State(rx.State):
             self.clear_repo_path_search()
             yield
 
-            perplexity_description: str = await perplexity_get_repo(
-                repo_url=project.repo_url,
-                client=CLIENT_PERPLEXITY,
-            )
-            project.set_description(
-                description=perplexity_description,
-            )
-            yield
+            # perplexity_description: str = await perplexity_get_repo(
+            #     repo_url=project.repo_url,
+            #     client=CLIENT_PERPLEXITY,
+            # )
+            # project.set_description(
+            #     description=perplexity_description,
+            # )
+            # yield
 
             self.save_project(project)
             yield
