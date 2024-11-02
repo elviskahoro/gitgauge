@@ -450,6 +450,36 @@ class State(rx.State):
                 name="projects_to_commit-cleared",
             )
 
+    def get_repo(
+        self: State,
+        repo_path: str,
+    ) -> Repository | None:
+        with tracer.start_as_current_span("get_repo") as span:
+            repo_path_search: str = helper_github.extract_repo_path_from_url(
+                url=repo_path,
+            )
+            repo: Repository | None = helper_github.fetch_repo(
+                repo_path=repo_path_search,
+                client=CLIENT_GITHUB,
+            )
+            if repo is None:
+                span.add_event(
+                    name="repo-not_found",
+                    attributes={
+                        "repo_path": repo_path,
+                    },
+                )
+                return None
+
+            span.add_event(
+                name="repo-found",
+                attributes={
+                    "repo_path": str(repo.full_name),
+                    "repo_description": str(repo.description),
+                },
+            )
+            return repo
+
     @rx.background
     async def fetch_repo_and_submit(
         self: State,
@@ -460,38 +490,21 @@ class State(rx.State):
                 span.add_event(
                     name="fetch_repo_and_submit-no_repo_path_submitted",
                 )
-                return
-
-            repo_path_search: str = helper_github.extract_repo_path_from_url(
-                url=self.repo_path_search,
-            )
-            repo: Repository | None = helper_github.fetch_repo(
-                repo_path=repo_path_search,
-                client=CLIENT_GITHUB,
-            )
-            if repo is None:
-                span_event_name: str = "repo-not_found"
-                repo_path: str = self.repo_path_search
-                self.clear_repo_path_search()
                 yield rx.toast.error(
-                    span_event_name,
-                )
-
-                span.add_event(
-                    name=span_event_name,
-                    attributes={
-                        "repo_path": repo_path,
-                    },
+                    "no_repo_path_submitted",
                 )
                 return
 
-            span.add_event(
-                name="repo-found",
-                attributes={
-                    "repo_path": str(repo.full_name),
-                    "repo_description": str(repo.description),
-                },
+            repo: Repository | None = self.get_repo(
+                repo_path=self.repo_path_search,
             )
+            self.clear_repo_path_search()
+            if repo is None:
+                yield rx.toast.error(
+                    "repo-not_found",
+                )
+                return
+
             project: Project = Project.from_repo(
                 repo=repo,
             )
