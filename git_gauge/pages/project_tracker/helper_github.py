@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+from enum import Enum
 from typing import TYPE_CHECKING, Generator
 
 from github import Github
@@ -10,8 +12,37 @@ from git_gauge.helper_logging import Severity, log
 from git_gauge.otel import tracer
 
 if TYPE_CHECKING:
+    from github.Issue import Issue
     from github.PullRequest import PullRequest
     from github.Repository import Repository
+
+
+class Since(Enum):
+    """Enum for the since parameter of the GitHub API."""
+
+    WEEK = "week"
+    MONTH = "month"
+
+    def get_datetime(
+        self: Since,
+    ) -> datetime:
+        match self:
+            case Since.WEEK:
+                return datetime.now(
+                    tz=datetime.timezone.utc,
+                ) - timedelta(
+                    days=7,
+                )
+
+            case Since.MONTH:
+                return datetime.now(
+                    tz=datetime.timezone.utc,
+                ) - timedelta(
+                    days=30,
+                )
+
+        error_message: str = f"Invalid since value: {self}"
+        raise ValueError(error_message)
 
 
 def set_up_client_from_tokens(
@@ -159,4 +190,44 @@ def fetch_pull_requests_for_repo(
         )
         span.add_event(
             name=f"{span_name}-completed",
+        )
+
+
+def _get_since_datetime(
+    since_enum: Since | None,
+    since_datetime: datetime | None,
+) -> datetime:
+    error_message: str | None = None
+    match since_enum, since_datetime:
+        case None, None:
+            error_message = "Either since_enum or since_datetime must be provided"
+            raise ValueError(error_message)
+
+        case _, None:
+            return since_enum.get_datetime()
+
+        case None, _:
+            return since_datetime
+
+        case _, _:
+            error_message = "Both since_enum and since_datetime cannot be provided"
+            raise ValueError(error_message)
+
+def fetch_github_issues_for_repo(
+    repo: Repository,
+    since_enum: Since | None = None,
+    since_datetime: datetime | None = None,
+) -> Generator[Issue, None, None]:
+    span_name: str = "fetch_github_issues_for_repo"
+    with tracer.start_as_current_span(span_name) as span:
+        span.add_event(
+            name=f"{span_name}-started",
+        )
+        since: datetime = _get_since_datetime(
+            since_enum=since_enum,
+            since_datetime=since_datetime,
+        )
+        yield from repo.get_issues(
+            state="all",
+            since=since,
         )
