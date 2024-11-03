@@ -1,4 +1,4 @@
-#trunk-ignore-all(ruff/PLW0603)
+# trunk-ignore-all(ruff/PLW0603)
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generator
@@ -14,7 +14,7 @@ from git_gauge.models.swot import Swot
 from chromadb import HttpClient as ClientChroma
 from git_gauge.helper_perplexity import Client as ClientPerplexity
 
-from git_gauge import helper_chroma, helper_perplexity
+from git_gauge import helper_chroma, helper_perplexity, helper_exa
 from git_gauge.models.project import Project
 from git_gauge.otel import tracer
 from git_gauge.pages.project_tracker import helper_github
@@ -26,6 +26,7 @@ from .constants import (
     NUMBER_OF_WORDS_TO_DISPLAY_FOR_REPO_DESCRIPTION,
 )
 from .helper_chroma import chroma_add_project, chroma_get_projects
+from .helper_exa import get_swot_from_exa_strenghts, get_swot_from_exa_weaknesses
 from .repo_cards import (
     repo_card_description_component,
     repo_card_skeleton,
@@ -42,7 +43,7 @@ CLIENT_EXA: Exa | None = None
 
 
 def set_up_clients() -> None:
-    global CLIENT_CHROMA, CLIENT_GITHUB, CLIENT_PERPLEXITY
+    global CLIENT_CHROMA, CLIENT_GITHUB, CLIENT_PERPLEXITY, CLIENT_EXA
     with tracer.start_as_current_span("set_up_clients") as span:
         try:
             span.add_event(
@@ -55,7 +56,7 @@ def set_up_clients() -> None:
         except AttributeError:
             span.add_event(
                 name="set_up_clients-chroma_client-failed",
-                )
+            )
 
         try:
             span.add_event(
@@ -81,6 +82,19 @@ def set_up_clients() -> None:
         except AttributeError:
             span.add_event(
                 name="set_up_clients-perplexity_client-failed",
+            )
+
+        try:
+            span.add_event(
+                name="set_up_clients-exa_client-started",
+            )
+            CLIENT_EXA = helper_exa.set_up_client_from_tokens(
+                tokens=TOKENS,
+            )
+
+        except AttributeError:
+            span.add_event(
+                name="set_up_clients-exa_client-failed",
             )
 
 
@@ -113,6 +127,16 @@ class State(rx.State):
     ) -> None:
         del value
         self.vector_search_filter()
+
+    def get_swot(
+        self: State,
+        repo_path: str,
+    ) -> Swot | None:
+        with rx.session() as session:
+            swot: Swot | None = (
+                session.query(Swot).filter(Swot.repo_path == repo_path).first()
+            )
+            return swot
 
     @staticmethod
     def _find_project_index_using_repo_path(
@@ -191,6 +215,50 @@ class State(rx.State):
             repo_card_description_component(
                 description=description,
             ),
+        )
+
+    @rx.var
+    def repo_card_strength(
+        self,
+    ) -> rx.Component:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return repo_card_skeleton()
+
+        strength_swot: Swot | None = self.get_swot(
+            repo_path=repo_path,
+        )
+        if strength_swot is None:
+            return repo_card_skeleton()
+
+        return rx.card(
+            rx.vstack(
+                rx.heading("Strength"),
+                rx.text(strength_swot.strengths),
+            ),
+            size="5",
+        )
+
+    @rx.var
+    def repo_card_weakness(
+        self,
+    ) -> rx.Component:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return repo_card_skeleton()
+
+        weakness_swot: Swot | None = self.get_swot(
+            repo_path=repo_path,
+        )
+        if weakness_swot is None:
+            return repo_card_skeleton()
+
+        return rx.card(
+            rx.vstack(
+                rx.heading("Weakness"),
+                rx.text(weakness_swot.weaknesses),
+            ),
+            size="5",
         )
 
     def setter_repo_path_search(
@@ -491,11 +559,16 @@ class State(rx.State):
             "save_projects_to_db",
         ) as span, rx.session() as session:
             # Check if SWOT already exists for this repo
-            existing_swot = session.query(Swot).filter(Swot.repo_path == swot.repo_path).first()
+            existing_swot = (
+                session.query(Swot).filter(Swot.repo_path == swot.repo_path).first()
+            )
             if existing_swot:
                 # Update existing SWOT
-                existing_swot.strengths = swot.strengths
-                existing_swot.weaknesses = swot.weaknesses
+                if swot.strengths:
+                    existing_swot.strengths = swot.strengths
+
+                if swot.weaknesses:
+                    existing_swot.weaknesses = swot.weaknesses
 
             else:
                 # Add new SWOT
@@ -528,6 +601,57 @@ class State(rx.State):
             span.add_event(
                 name="swot-saved_to_db",
             )
+
+    def get_strengths(
+        self: State,
+    ) -> None:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return
+
+        project_index: int | None = State._find_project_index_using_repo_path(
+            projects=self.projects,
+            repo_path=repo_path,
+        )
+        if project_index is None:
+            return
+
+        strengths: str = get_swot_from_exa_strenghts(
+            organization_url=repo_path,
+            client=CLIENT_EXA,
+        )
+        swot: Swot = Swot(
+            repo_path=repo_path,
+            strengths=strengths,
+            weaknesses="",
+        )
+        self.save_swot(swot)
+
+    def get_weaknesses(
+        self: State,
+    ) -> None:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return
+
+        project_index: int | None = State._find_project_index_using_repo_path(
+            projects=self.projects,
+            repo_path=repo_path,
+        )
+        if project_index is None:
+            return
+
+        project: Project = self.projects[project_index]
+        weaknesses: str = get_swot_from_exa_weaknesses(
+            organization_url=project.repo_url,
+            client=CLIENT_EXA,
+        )
+        swot: Swot = Swot(
+            repo_path=repo_path,
+            strengths="",
+            weaknesses=weaknesses,
+        )
+        self.save_swot(swot)
 
     @rx.background
     async def fetch_repo_and_submit(
