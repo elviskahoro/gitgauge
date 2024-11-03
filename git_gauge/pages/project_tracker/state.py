@@ -533,7 +533,9 @@ class State(rx.State):
             # )
             # yield
 
-            await self.save_project(project)
+            for item in self.save_project(project):
+                yield item
+
             chroma_add_project(
                 project=project,
                 client=CLIENT_CHROMA,
