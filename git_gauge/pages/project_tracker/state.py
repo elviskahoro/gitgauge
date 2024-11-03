@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Generator
+from pathlib import Path
 
 import reflex as rx
 from exa_py import Exa
@@ -32,6 +33,8 @@ from .repo_cards import (
     repo_card_skeleton,
     repo_card_stats_component,
 )
+
+from git_gauge.helper_openai import openai_text_to_speech_for_swot
 
 if TYPE_CHECKING:
     from github.Repository import Repository
@@ -104,6 +107,7 @@ set_up_clients()
 class State(rx.State):
     """The state for the project tracker page."""
 
+    audio_file_path: str = ""
     distance_threshold: int = DEFAULT_DISTANCE_THRESHOLD_FOR_VECTOR_SEARCH
     has_generated_audio: bool = False
     current_filter_vector_search_text: str = ""
@@ -555,6 +559,32 @@ class State(rx.State):
     def generate_audio(
         self: State,
     ) -> None:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return
+
+        project_index: int | None = State._find_project_index_using_repo_path(
+            projects=self.projects,
+            repo_path=repo_path,
+        )
+        if project_index is None:
+            return
+
+        project: Project = self.projects[project_index]
+
+        response_audio = openai_text_to_speech_for_swot(
+            website=project.repo_url,
+        )
+        file_path = f"{repo_path}.mp3"
+        file = rx.get_upload_dir() / file_path
+        file.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        response_audio.write_to_file(file)
+        self.audio_file_path = file_path
+        print(self.audio_file_path)
         self.has_generated_audio = True
 
     def _save_swot_to_db(
