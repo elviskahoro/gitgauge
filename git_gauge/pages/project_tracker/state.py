@@ -531,14 +531,11 @@ class State(rx.State):
             # )
             # yield
 
-            self.save_project(project)
-            yield
-
+            await self.save_project(project)
             chroma_add_project(
                 project=project,
                 client=CLIENT_CHROMA,
             )
-            yield
 
     def vector_search_filter(
         self: State,
