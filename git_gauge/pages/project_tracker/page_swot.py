@@ -23,6 +23,11 @@ def index() -> rx.Component:
             width="100%",
             justify_content="space-between",
         ),
+        rx.vstack(
+            rx.fragment(State.repo_card_strength),
+            rx.fragment(State.repo_card_weakness),
+            rx.fragment(State.repo_card_stats),
+        ),
         rx.flex(
             rx.input(
                 id=REPO_SEARCH_INPUT_ID,
@@ -56,12 +61,7 @@ def index() -> rx.Component:
             justify_content="space-between",
             width="100%",
         ),
-        rx.hstack(
-            rx.fragment(State.repo_card_stats),
-            rx.fragment(State.repo_card_strength),
-            rx.fragment(State.repo_card_weakness),
-            width="100%",
-        ),
+
         rx.flex(
             rx.cond(
                 State.has_generated_audio,
