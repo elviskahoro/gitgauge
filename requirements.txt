@@ -5,3 +5,6 @@ reflex-ag-grid
 PyGithub
 opentelemetry-exporter-otlp-proto-http
 pytz
+openai
+pyttsx3
+gTTS
