@@ -47,6 +47,11 @@ def index() -> rx.Component:
                     on_click=State.get_weaknesses,
                     margin_bottom="1em",
                 ),
+                rx.button(
+                    "Generate audio",
+                    on_click=State.generate_audio,
+                    margin_bottom="1em",
+                ),
             ),
             justify_content="space-between",
             width="100%",
@@ -56,6 +61,23 @@ def index() -> rx.Component:
             rx.fragment(State.repo_card_strength),
             rx.fragment(State.repo_card_weakness),
             width="100%",
+        ),
+        rx.flex(
+            rx.cond(
+                State.has_generated_audio,
+                rx.audio(
+                    id="swot-audio",
+                    url="/swot_analysis.mp3",
+                    height="32px",
+                ),
+                rx.skeleton(
+                    rx.audio(
+                        id="swot-audio-skeleton",
+                        height="32px",
+                    ),
+                ),
+            ),
+            max_height="30px",
         ),
         ag_grid(
             id=AG_GRID_ID,

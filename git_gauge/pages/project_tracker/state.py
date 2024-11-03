@@ -105,6 +105,7 @@ class State(rx.State):
     """The state for the project tracker page."""
 
     distance_threshold: int = DEFAULT_DISTANCE_THRESHOLD_FOR_VECTOR_SEARCH
+    has_generated_audio: bool = False
     current_filter_vector_search_text: str = ""
     last_vector_search_filter_text: str = ""
     repo_path_search: str = ""
@@ -550,6 +551,11 @@ class State(rx.State):
                 },
             )
             return repo
+
+    def generate_audio(
+        self: State,
+    ) -> None:
+        self.has_generated_audio = True
 
     def _save_swot_to_db(
         self: State,
