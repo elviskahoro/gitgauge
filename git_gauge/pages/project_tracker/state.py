@@ -15,6 +15,8 @@ from git_gauge.models.swot import Swot
 from chromadb import HttpClient as ClientChroma
 from git_gauge.helper_perplexity import Client as ClientPerplexity
 
+from .helper_perplexity import perplexity_get_product_or_service
+
 from git_gauge import helper_chroma, helper_perplexity, helper_exa
 from git_gauge.models.project import Project
 from git_gauge.otel import tracer
@@ -107,6 +109,7 @@ set_up_clients()
 class State(rx.State):
     """The state for the project tracker page."""
 
+    swot: Swot | None = None
     audio_file_path: str = ""
     distance_threshold: int = DEFAULT_DISTANCE_THRESHOLD_FOR_VECTOR_SEARCH
     has_generated_audio: bool = False
@@ -135,13 +138,8 @@ class State(rx.State):
 
     def get_swot(
         self: State,
-        repo_path: str,
     ) -> Swot | None:
-        with rx.session() as session:
-            swot: Swot | None = (
-                session.query(Swot).filter(Swot.repo_path == repo_path).first()
-            )
-            return swot
+        return self.swot
 
     @staticmethod
     def _find_project_index_using_repo_path(
@@ -230,19 +228,20 @@ class State(rx.State):
         if repo_path is None:
             return repo_card_skeleton()
 
-        strength_swot: Swot | None = self.get_swot(
-            repo_path=repo_path,
-        )
+        strength_swot: Swot | None = self.get_swot()
         if strength_swot is None:
             return repo_card_skeleton()
 
-        return rx.card(
-            rx.vstack(
+        if strength_swot.repo_path == repo_path:
+            return rx.card(
+                rx.vstack(
                 rx.heading("Strength"),
-                rx.text(strength_swot.strengths),
+                rx.text(str(strength_swot.strengths)),
             ),
             size="5",
         )
+
+        return repo_card_skeleton()
 
     @rx.var
     def repo_card_weakness(
@@ -252,19 +251,20 @@ class State(rx.State):
         if repo_path is None:
             return repo_card_skeleton()
 
-        weakness_swot: Swot | None = self.get_swot(
-            repo_path=repo_path,
-        )
+        weakness_swot: Swot | None = self.get_swot()
         if weakness_swot is None:
             return repo_card_skeleton()
 
-        return rx.card(
-            rx.vstack(
+        if weakness_swot.repo_path == repo_path:
+            return rx.card(
+                rx.vstack(
                 rx.heading("Weakness"),
-                rx.text(weakness_swot.weaknesses),
-            ),
-            size="5",
-        )
+                rx.text(str(weakness_swot.weaknesses)),
+                ),
+                size="5",
+            )
+
+        return repo_card_skeleton()
 
     def setter_repo_path_search(
         self: State,
@@ -638,32 +638,7 @@ class State(rx.State):
                 name="swot-saved_to_db",
             )
 
-    def get_strengths(
-        self: State,
-    ) -> None:
-        repo_path: str | None = self.ag_grid_selection_repo_path
-        if repo_path is None:
-            return
-
-        project_index: int | None = State._find_project_index_using_repo_path(
-            projects=self.projects,
-            repo_path=repo_path,
-        )
-        if project_index is None:
-            return
-
-        strengths: str = get_swot_from_exa_strenghts(
-            organization_url=repo_path,
-            client=CLIENT_EXA,
-        )
-        swot: Swot = Swot(
-            repo_path=repo_path,
-            strengths=strengths,
-            weaknesses="",
-        )
-        self.save_swot(swot)
-
-    def get_weaknesses(
+    async def get_strengths(
         self: State,
     ) -> None:
         repo_path: str | None = self.ag_grid_selection_repo_path
@@ -678,16 +653,54 @@ class State(rx.State):
             return
 
         project: Project = self.projects[project_index]
-        weaknesses: str = get_swot_from_exa_weaknesses(
-            organization_url=project.repo_url,
-            client=CLIENT_EXA,
+        strengths: str = await perplexity_get_product_or_service(
+            website_url=project.repo_url,
+            strength=True,
+            client=CLIENT_PERPLEXITY,
         )
-        swot: Swot = Swot(
+        if self.swot is None:
+            self.swot = Swot(
+                repo_path=repo_path,
+                strengths=strengths,
+                weaknesses="",
+            )
+        else:
+            if self.swot.repo_path == repo_path:
+                self.swot.strengths = strengths
+
+        # self.save_swot(swot)
+
+    async def get_weaknesses(
+        self: State,
+    ) -> None:
+        repo_path: str | None = self.ag_grid_selection_repo_path
+        if repo_path is None:
+            return
+
+        project_index: int | None = State._find_project_index_using_repo_path(
+            projects=self.projects,
             repo_path=repo_path,
-            strengths="",
-            weaknesses=weaknesses,
         )
-        self.save_swot(swot)
+        if project_index is None:
+            return
+
+        project: Project = self.projects[project_index]
+        weaknesses: str = await perplexity_get_product_or_service(
+            website_url=project.repo_url,
+            strength=False,
+            client=CLIENT_PERPLEXITY,
+        )
+        if self.swot is None:
+            self.swot = Swot(
+                repo_path=repo_path,
+                strengths="",
+                weaknesses=weaknesses,
+            )
+        else:
+            if self.swot.repo_path == repo_path:
+                self.swot.weaknesses = weaknesses
+
+        # self.save_swot(swot)
 
     @rx.background
     async def fetch_repo_and_submit(
