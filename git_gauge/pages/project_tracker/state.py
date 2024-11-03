@@ -9,6 +9,8 @@ from github import Github as ClientGithub
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from git_gauge.models.swot import Swot
+
 from chromadb import HttpClient as ClientChroma
 from git_gauge.helper_perplexity import Client as ClientPerplexity
 
@@ -480,6 +482,52 @@ class State(rx.State):
                 },
             )
             return repo
+
+    def _save_swot_to_db(
+        self: State,
+        swot: Swot,
+    ) -> None:
+        with tracer.start_as_current_span(
+            "save_projects_to_db",
+        ) as span, rx.session() as session:
+            # Check if SWOT already exists for this repo
+            existing_swot = session.query(Swot).filter(Swot.repo_path == swot.repo_path).first()
+            if existing_swot:
+                # Update existing SWOT
+                existing_swot.strengths = swot.strengths
+                existing_swot.weaknesses = swot.weaknesses
+
+            else:
+                # Add new SWOT
+                session.add(swot)
+
+            session.commit()
+            session.refresh(swot)
+            span.add_event(
+                name="db-swots-added_to_db",
+                attributes={
+                    "swot_repo_path": str(swot.repo_path),
+                    "operation": "update" if existing_swot else "insert",
+                },
+            )
+
+    def save_swot(
+        self: State,
+        swot: Swot,
+    ) -> None:
+        with tracer.start_as_current_span("save_swot") as span:
+            span.add_event(
+                name="swot-added_to_db",
+                attributes={
+                    "swot_repo_path": str(swot.repo_path),
+                },
+            )
+            self._save_swot_to_db(
+                swot=swot,
+            )
+            span.add_event(
+                name="swot-saved_to_db",
+            )
 
     @rx.background
     async def fetch_repo_and_submit(
