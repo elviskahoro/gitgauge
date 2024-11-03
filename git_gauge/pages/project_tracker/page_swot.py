@@ -67,7 +67,7 @@ def index() -> rx.Component:
                 State.has_generated_audio,
                 rx.audio(
                     id="swot-audio",
-                    url="/swot_analysis.mp3",
+                    url=rx.get_upload_url(State.audio_file_path),
                     height="32px",
                 ),
                 rx.skeleton(
