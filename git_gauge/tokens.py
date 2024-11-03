@@ -13,6 +13,7 @@ TOKENS: dict[str, str] = {
     "OTEL_PROVIDER_TOKEN_NAME": os.getenv("OTEL_PROVIDER_TOKEN_NAME"),
     "OTEL_APP_NAME": os.getenv("OTEL_APP_NAME"),
     "PERPLEXITY_API_KEY": os.getenv("PERPLEXITY_API_KEY"),
+    "EXA_API_KEY": os.getenv("EXA_API_KEY"),
 }
 if TOKENS["OTEL_PROVIDER_TOKEN_NAME"] is not None:
     TOKENS.update(
