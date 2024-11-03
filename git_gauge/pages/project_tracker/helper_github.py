@@ -144,7 +144,7 @@ def fetch_repo(
                     "repo_path": repo_path,
                 },
             )
-            raise AttributeError("No client provided")
+            raise AttributeError("No GitHub client provided")
 
         span.add_event(
             name="fetch_repo-started",
