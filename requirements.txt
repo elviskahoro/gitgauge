@@ -1,4 +1,5 @@
 chromadb
+exa_py
 reflex
 reflex-ag-grid
 PyGithub

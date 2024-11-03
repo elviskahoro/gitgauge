@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generator
 
 import reflex as rx
+from exa_py import Exa
 from github import Github as ClientGithub
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 CLIENT_CHROMA: ClientChroma | None = None
 CLIENT_GITHUB: ClientGithub | None = None
 CLIENT_PERPLEXITY: ClientPerplexity | None = None
+CLIENT_EXA: Exa | None = None
 
 
 def set_up_clients() -> None:
